@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "dev": "node script.js"
+  },
   "dependencies": {
     "node-fetch": "^3.3.2",
     "puppeteer": "^21.6.1",

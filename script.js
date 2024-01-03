@@ -25,6 +25,7 @@ async function saveSentAdIds() {
     await fs.writeFile(sentAdIdsFilePath, JSON.stringify(idsArray), 'utf8');
 }
 
+
 async function checkNewListings() {
     console.log("Launching browser...");
     const browser = await puppeteer.launch({ headless: true });
@@ -73,9 +74,17 @@ async function checkNewListings() {
                     break;
                 }
             }
-            
-            const fuelExists = await detailPage.$('.item-detail-attributes-info_AttributesInfo__measure__uZS62') !== null;
-            let fuel = fuelExists ? await detailPage.$eval('.item-detail-attributes-info_AttributesInfo__measure__uZS62', el => el.textContent) : 'Название не найдено';
+
+            let fuel = 'Информация не найдена';
+
+            const fuelElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
+            for (const element of fuelElements) {
+                const textContentFuel = await element.evaluate(el => el.textContent);
+                if (textContentFuel.includes('Diésel') || textContentFuel.includes('Gasolina')) {
+                    fuel = textContentFuel;
+                    break;
+                }
+            }
 
             let box = 'Информация не найдена';
 
@@ -148,35 +157,45 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+
+  let isProcessing = false;
+
   async function main() {
     console.log("Running main function...");
     const newlistings = await checkNewListings();
+    let foundNewAd = false;
+    if (isProcessing) return;
+    isProcessing = true;
 
     if (newlistings.length > 0) {
         if (!lastAdId) {
             lastAdId = newlistings[0].adId;
+            console.log(`Setting lastAdId to ${lastAdId}`);
         }
 
-        let foundNewAd = false;
-        let mediaGroup = [];
 
         for (const ad of newlistings) {
             let adId = ad.adId;
-        
+
+            if (sentAdIds.has(adId)) {
+                continue;
+            }
+
             if (adId === lastAdId) {
                 break;
             }
-        
+
             if (!sentAdIds.has(adId)) {
-                const caption = `${ad.title}\n` +
+                const caption = `__${ad.title}__\n` +
+                                `\n` +
                                 `Цена: ${ad.price}\n` +
                                 `Топливо: ${ad.fuel}\n` +
                                 `Пробег: ${ad.kilometors}\n` +
                                 `Коробка: ${ad.box}\n` +
                                 `Описание: ${ad.description}\n` +
                                 `[Ссылка](${ad.link})`;
-        
-                mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
+                
+                let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
                     type: 'photo',
                     media: photoUrl,
                     caption: index === 0 ? caption : undefined,
@@ -185,47 +204,39 @@ function sleep(ms) {
         
                 if (mediaGroup.length > 0) {
                     await sendTelegramMediaGroup('-4090647219', mediaGroup);
+                    await sleep(30000);
                 } else {
                     await sendTelegramMessage('-4090647219', caption, true);
+                    await sleep(30000);
                 }
         
                 sentAdIds.add(adId);
                 foundNewAd = true;
-                
-                mediaGroup = [];
             }
         }
+
         if (foundNewAd) {
             lastAdId = newlistings[0].adId;
             await saveSentAdIds();
         } else {
             console.log("No new listings found since the last check.");
-            await sendTelegramMessage('-4090647219', "Новых объявлений с последней проверки нет!");
+            // await sendTelegramMessage('-4090647219', "Новых объявлений с последней проверки нет!");
         }
+
+        lastAdId = newlistings[0].adId;
+        await saveSentAdIds();
         
     } else {
         console.log("No listings found.");
-        await sendTelegramMessage("Объявлений нет!");
+        // await sendTelegramMessage("Объявлений нет!");
     }
-}
 
-async function processMediaGroup(mediaGroup) {
-    try {
-        await sendTelegramMediaGroup('-4090647219', mediaGroup);
-    } catch (error) {
-        if (error.message.includes("Too Many Requests: retry after")) {
-            const retryAfter = parseInt(error.message.split("retry after ")[1], 10) * 1000;
-            console.log(`Rate limit hit, retrying after ${retryAfter / 1000} seconds.`);
-            await sleep(retryAfter);
-            await sendTelegramMediaGroup('-4090647219', mediaGroup); 
-        } else {
-            throw error;
-        }
-    }
+    isProcessing = false;
+
 }
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 100000);
+    setInterval(main, 600000);
     
 });
