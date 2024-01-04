@@ -6,6 +6,8 @@ import { Telegraf } from 'telegraf';
 const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8');
 
 const sentAdIdsFilePath = './sentAdIds.json';
+const lastAdIdFilePath = './lastAdId.json';
+
 let sentAdIds = new Set();
 let queue = [];
 
@@ -25,10 +27,24 @@ async function saveSentAdIds() {
     await fs.writeFile(sentAdIdsFilePath, JSON.stringify(idsArray), 'utf8');
 }
 
+async function loadLastAdId() {
+    try {
+        const data = await fs.readFile(lastAdIdFilePath, 'utf8');
+        lastAdId = JSON.parse(data).lastAdId;
+    } catch (error) {
+        console.log('No lastAdId data found, starting fresh.');
+    }
+}
+
+
+async function saveLastAdId() {
+    await fs.writeFile(lastAdIdFilePath, JSON.stringify({ lastAdId }), 'utf8');
+}
+
 
 async function checkNewListings() {
     console.log("Launching browser...");
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({   headless: true,   args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log("Going to the page...");
     await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'networkidle0' });
@@ -107,6 +123,8 @@ async function checkNewListings() {
         } finally {
             await detailPage.close();
         }
+
+        saveLastAdId();
     }
 
     console.log("Listings fetched:", listings);
@@ -133,7 +151,13 @@ async function sendTelegramMessage(chatId, message, useMarkdown = false) {
 
 async function sendTelegramMediaGroup(chatId, mediaGroup) {
     try {
-        await bot.telegram.sendMediaGroup(chatId, mediaGroup);
+        const validMediaGroup = mediaGroup.filter(media => media.media.startsWith('http'));
+        if (validMediaGroup.length === 0) {
+            console.log("Нет доступных изображений для отправки.");
+            return;
+        }
+
+        await bot.telegram.sendMediaGroup(chatId, validMediaGroup);
         console.log("Media group sent successfully.");
     } catch (error) {
         console.error('Failed to send media group:', error);
@@ -147,7 +171,6 @@ async function sendTelegramMediaGroup(chatId, mediaGroup) {
         }
     }
 }
-
 bot.launch();
 
 let lastAdId = null;
@@ -159,84 +182,75 @@ function sleep(ms) {
 
 
   let isProcessing = false;
-
+  
   async function main() {
+    await loadLastAdId();
     console.log("Running main function...");
     const newlistings = await checkNewListings();
     let foundNewAd = false;
+
     if (isProcessing) return;
     isProcessing = true;
 
     if (newlistings.length > 0) {
         if (!lastAdId) {
-            lastAdId = newlistings[0].adId;
-            console.log(`Setting lastAdId to ${lastAdId}`);
-        }
-
-
-        for (const ad of newlistings) {
-            let adId = ad.adId;
-
-            if (sentAdIds.has(adId)) {
-                continue;
-            }
-
-            if (adId === lastAdId) {
-                break;
-            }
-
-            if (!sentAdIds.has(adId)) {
-                const caption = `__${ad.title}__\n` +
-                                `\n` +
-                                `Цена: ${ad.price}\n` +
-                                `Топливо: ${ad.fuel}\n` +
-                                `Пробег: ${ad.kilometors}\n` +
-                                `Коробка: ${ad.box}\n` +
-                                `Описание: ${ad.description}\n` +
-                                `[Ссылка](${ad.link})`;
-                
-                let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
-                    type: 'photo',
-                    media: photoUrl,
-                    caption: index === 0 ? caption : undefined,
-                    parse_mode: index === 0 ? 'Markdown' : undefined 
-                }));
-        
-                if (mediaGroup.length > 0) {
-                    await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                    await sleep(30000);
-                } else {
-                    await sendTelegramMessage('-4090647219', caption, true);
-                    await sleep(30000);
-                }
-        
-                sentAdIds.add(adId);
-                foundNewAd = true;
-            }
-        }
-
-        if (foundNewAd) {
-            lastAdId = newlistings[0].adId;
-            await saveSentAdIds();
+            lastAdId = newlistings[newlistings.length - 1].adId;
+            console.log(`Initial lastAdId set to ${lastAdId}`);
         } else {
-            console.log("No new listings found since the last check.");
-            // await sendTelegramMessage('-4090647219', "Новых объявлений с последней проверки нет!");
-        }
+            for (let i = newlistings.length - 1; i >= 0; i--) {
+                let ad = newlistings[i];
+                let adId = ad.adId;
 
-        lastAdId = newlistings[0].adId;
-        await saveSentAdIds();
-        
+                if (!sentAdIds.has(adId)) {
+                    const caption = `__${ad.title}__\n` +
+                                    `\n` +
+                                    `Цена: ${ad.price}\n` +
+                                    `Топливо: ${ad.fuel}\n` +
+                                    `Пробег: ${ad.kilometors}\n` +
+                                    `Коробка: ${ad.box}\n` +
+                                    `Описание: ${ad.description}\n` +
+                                    `[Ссылка](${ad.link})`;
+
+                    let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
+                        type: 'photo',
+                        media: photoUrl,
+                        caption: index === 0 ? caption : undefined,
+                        parse_mode: index === 0 ? 'Markdown' : undefined 
+                    }));
+
+                    if (mediaGroup.length > 0) {
+                        await sendTelegramMediaGroup('-4090647219', mediaGroup);
+                        await sleep(30000);
+                    } else {
+                        await sendTelegramMessage('-4090647219', caption, true);
+                        await sleep(30000);
+                    }
+                    sentAdIds.add(adId);
+                    foundNewAd = true;
+                }
+
+                if (adId === lastAdId) {
+                    break;
+                }
+            }
+
+            if (foundNewAd) {
+                lastAdId = newlistings[0].adId;
+                await saveSentAdIds();
+            } else {
+                console.log("No new listings found since the last check.");
+            }
+        }
     } else {
         console.log("No listings found.");
-        // await sendTelegramMessage("Объявлений нет!");
     }
 
     isProcessing = false;
-
 }
+
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 600000);
+    setInterval(main, 100000);
     
 });
