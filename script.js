@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import { Telegraf, session } from 'telegraf';
