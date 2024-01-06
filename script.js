@@ -16,8 +16,8 @@ const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     });
 
 const proxyServer = 'ua-1.stableproxy.com';
-const proxyPort = '11001';
-const proxyUser = 'baDb9y9sv2_0';
+const proxyPort = '11000';
+const proxyUser = 'baDb9y9sv2';
 const proxyPassword = '578sNJwVMiyP';
 
 
