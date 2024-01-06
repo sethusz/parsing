@@ -11,9 +11,17 @@ import https from 'https';
 
 const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     telegram: {
-    agent: new https.Agent({ keepAlive: true }),
+        agent: new https.Agent({
+            keepAlive: true,
+            host: proxyServer, 
+            port: proxyPort, 
+            auth: {
+                username: proxyUser, 
+                password: proxyPassword 
+            }
+        }),
     },
-    });
+});
 
 const proxyServer = 'ua-1.stableproxy.com';
 const proxyPort = '11000';
