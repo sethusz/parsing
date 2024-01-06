@@ -8,7 +8,6 @@ import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import { Telegraf, session } from 'telegraf';
 import https from 'https';
-import punycode from 'punycode/';
 
 const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     telegram: {
