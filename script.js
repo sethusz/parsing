@@ -1,29 +1,43 @@
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
-import { Telegraf } from 'telegraf';
+import { Telegraf, session } from 'telegraf';
+import https from 'https';
 
-const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8');
+const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
+    telegram: {
+    agent: new https.Agent({ keepAlive: true }),
+    },
+    });
+
+    
+
 
 const sentAdIdsFilePath = './sentAdIds.json';
 const lastAdIdFilePath = './lastAdId.json';
 
+const sessionMiddleware = session();
 let sentAdIds = new Set();
 let queue = [];
 
 async function loadSentAdIds() {
     try {
         const data = await fs.readFile(sentAdIdsFilePath, 'utf8');
-        const ids = JSON.parse(data);
-        sentAdIds = new Set(ids);
+        const items = JSON.parse(data);
+
+        // Оставляем только записи, которые не старше двух запусков скрипта
+        const thresholdTime = Date.now() - (2 * 100000); // 2 запуска * 100000 мс
+        const filteredItems = items.filter(item => item.time > thresholdTime);
+
+        sentAdIds = new Set(filteredItems.map(item => item.id));
     } catch (error) {
-        console.log('Нет сохраненных данных, создаем новый файл.');
+        console.log('No saved data, creating a new file.');
         await saveSentAdIds();
     }
 }
 
 async function saveSentAdIds() {
-    const idsArray = [...sentAdIds];
+    const idsArray = Array.from(sentAdIds).map(id => ({ id, time: Date.now() }));
     await fs.writeFile(sentAdIdsFilePath, JSON.stringify(idsArray), 'utf8');
 }
 
@@ -56,12 +70,14 @@ async function checkNewListings() {
     const listingElementHandles = await page.$$('a.ItemCardList__item');
     for (const linkElementHandle of listingElementHandles) {
         const link = await linkElementHandle.evaluate(el => el.href);
+
         console.log(`Processing link: ${link}`);
         const detailPage = await browser.newPage();
+
         try {
             await detailPage.goto(link, { waitUntil: 'networkidle0' });
             const titleExists = await detailPage.$('.item-detail_ItemDetail__title__wcPRl') !== null;
-            let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Название не найдено';
+            let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Title not found';
 
             let price = 'Информация не найдена';
             const priceSelectorStandard = '.item-detail-price_ItemDetailPrice--standard__TxPXr';
@@ -115,7 +131,6 @@ async function checkNewListings() {
 
 
 
-
             const photoUrls = await getSliderImages(detailPage, '.wallapop-carousel--rounded');
             listings.push({ adId: link, link, title, price, description, kilometors, fuel, box, photoUrls });
         } catch (error) {
@@ -123,12 +138,10 @@ async function checkNewListings() {
         } finally {
             await detailPage.close();
         }
-
-        saveLastAdId();
     }
 
-    console.log("Listings fetched:", listings);
     await browser.close();
+    console.log("Listings fetched:", listings);
     return listings;
 }
 
@@ -182,27 +195,35 @@ function sleep(ms) {
 
 
   let isProcessing = false;
+
+  let isFirstRun = true;
   
   async function main() {
-    await loadLastAdId();
-    console.log("Running main function...");
-    const newlistings = await checkNewListings();
-    let foundNewAd = false;
+    if (isProcessing) {
+        console.log("Previous main function is still running, skipping...");
+        return;
+    }
 
-    if (isProcessing) return;
     isProcessing = true;
 
-    if (newlistings.length > 0) {
-        if (!lastAdId) {
-            lastAdId = newlistings[newlistings.length - 1].adId;
-            console.log(`Initial lastAdId set to ${lastAdId}`);
-        } else {
-            for (let i = newlistings.length - 1; i >= 0; i--) {
-                let ad = newlistings[i];
-                let adId = ad.adId;
+    try {
+        await loadLastAdId();
+        console.log("Running main function...");
+        const newlistings = await checkNewListings();
+        newlistings.reverse();
+        let newLastAdId = null;
+        let foundNew = false;
 
-                if (!sentAdIds.has(adId)) {
-                    const caption = `__${ad.title}__\n` +
+        for (let i = 0; i < newlistings.length; i++) {
+            let ad = newlistings[i];
+            let adId = ad.adId;
+        
+            if (!sentAdIds.has(adId)) {
+                console.log(`Found new ad: ${adId}`);
+                foundNew = true;
+
+                if (!isFirstRun) {
+                    const caption = `${ad.title}\n` +
                                     `\n` +
                                     `Цена: ${ad.price}\n` +
                                     `Топливо: ${ad.fuel}\n` +
@@ -215,7 +236,7 @@ function sleep(ms) {
                         type: 'photo',
                         media: photoUrl,
                         caption: index === 0 ? caption : undefined,
-                        parse_mode: index === 0 ? 'Markdown' : undefined 
+                        parse_mode: index === 0 ? 'Markdown' : undefined
                     }));
 
                     if (mediaGroup.length > 0) {
@@ -225,32 +246,41 @@ function sleep(ms) {
                         await sendTelegramMessage('-4090647219', caption, true);
                         await sleep(30000);
                     }
+                    console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
-                    foundNewAd = true;
+                    newLastAdId = adId; // Обновляем newLastAdId после успешной отправки
                 }
-
-                if (adId === lastAdId) {
-                    break;
-                }
-            }
-
-            if (foundNewAd) {
-                lastAdId = newlistings[0].adId;
-                await saveSentAdIds();
-            } else {
-                console.log("No new listings found since the last check.");
             }
         }
-    } else {
-        console.log("No listings found.");
-    }
 
-    isProcessing = false;
+        if (newLastAdId) {
+            lastAdId = newLastAdId; // Обновляем lastAdId после обработки всех новых объявлений
+            await saveSentAdIds();
+            await saveLastAdId();
+            console.log(`Updated lastAdId to ${lastAdId}`);
+
+        } else if (!foundNew) {
+            console.log("Новых объявлений нет.");
+        }
+
+        if (isFirstRun) {
+            console.log("First run, setting isFirstRun to false");
+
+            isFirstRun = false;
+        }
+    } catch (error) {
+        console.error("Error in main function:", error);
+    } finally {
+        isProcessing = false;
+        console.log("Finished main function");
+
+    }
 }
 
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 100000);
-    
+    setInterval(main, 100000); 
 });
+
+
