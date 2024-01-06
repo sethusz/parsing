@@ -1,9 +1,14 @@
 
+
+
+
+
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
 import { Telegraf, session } from 'telegraf';
 import https from 'https';
+var punycode = require('punycode/');
 
 const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     telegram: {
@@ -11,7 +16,7 @@ const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     },
     });
 
-    const proxyServer = 'ua-1.stableproxy.com';
+const proxyServer = 'ua-1.stableproxy.com';
 const proxyPort = '11001';
 const proxyUser = 'baDb9y9sv2_0';
 const proxyPassword = '578sNJwVMiyP';
@@ -29,8 +34,7 @@ async function loadSentAdIds() {
         const data = await fs.readFile(sentAdIdsFilePath, 'utf8');
         const items = JSON.parse(data);
 
-        // Оставляем только записи, которые не старше двух запусков скрипта
-        const thresholdTime = Date.now() - (2 * 100000); // 2 запуска * 100000 мс
+        const thresholdTime = Date.now() - (2 * 100000); 
         const filteredItems = items.filter(item => item.time > thresholdTime);
 
         sentAdIds = new Set(filteredItems.map(item => item.id));
