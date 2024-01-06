@@ -61,7 +61,7 @@ async function checkNewListings() {
     const browser = await puppeteer.launch({   headless: true,   args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'load', timeout: 90000 });
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'networkidle0' });
 
     console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
@@ -241,10 +241,10 @@ function sleep(ms) {
 
                     if (mediaGroup.length > 0) {
                         await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(40000);
+                        await sleep(50000);
                     } else {
                         await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(40000);
+                        await sleep(50000);
                     }
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
