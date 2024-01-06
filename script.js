@@ -1,4 +1,4 @@
-User
+
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
@@ -256,10 +256,10 @@ function sleep(ms) {
 
                     if (mediaGroup.length > 0) {
                         await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(30000);
+                        await sleep(45000);
                     } else {
                         await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(30000);
+                        await sleep(45000);
                     }
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
@@ -295,5 +295,5 @@ function sleep(ms) {
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 100000); 
+    setInterval(main, 400000); 
 });
