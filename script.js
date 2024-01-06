@@ -4,7 +4,11 @@ import fs from 'fs/promises';
 import { Telegraf, session } from 'telegraf';
 import https from 'https';
 
-const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8');
+const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
+    telegram: {
+    agent: new https.Agent({ keepAlive: true }),
+    },
+    });
 
     
 
@@ -54,17 +58,12 @@ async function saveLastAdId() {
 
 async function checkNewListings() {
     console.log("Launching browser...");
-    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const browser = await puppeteer.launch({   headless: true,   args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36');
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', {
-        waitUntil: 'networkidle2',
-        timeout: 120000 // 120 секунд
-    });
-    console.log('Response Status:', response.status());
-    console.log('Response Headers:', response.headers());
-        console.log("Evaluating page content...");
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'networkidle0' });
+
+    console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
 
     const listings = [];
@@ -242,10 +241,10 @@ function sleep(ms) {
 
                     if (mediaGroup.length > 0) {
                         await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(50000);
+                        await sleep(40000);
                     } else {
                         await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(50000);
+                        await sleep(40000);
                     }
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
@@ -281,7 +280,7 @@ function sleep(ms) {
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 400000); 
+    setInterval(main, 100000); 
 });
 
 
