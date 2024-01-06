@@ -4,11 +4,7 @@ import fs from 'fs/promises';
 import { Telegraf, session } from 'telegraf';
 import https from 'https';
 
-const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
-    telegram: {
-    agent: new https.Agent({ keepAlive: true }),
-    },
-    });
+const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8');
 
     
 
