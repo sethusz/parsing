@@ -92,7 +92,6 @@ async function checkNewListings() {
         
             let title = await safelyGetTextContent(detailPage, '.item-detail_ItemDetail__title__wcPRl', 'Title not found');
         
-            // Extract Price with detailed logic
             let price = 'Price not found';
             const priceElementStandard = await detailPage.$('.item-detail-price_ItemDetailPrice--standard__TxPXr');
             const priceElementFinanced = await detailPage.$('.item-detail-price_ItemDetailPrice--standardFinanced__14D3z');
@@ -102,10 +101,8 @@ async function checkNewListings() {
                 price = await detailPage.evaluate(el => el.textContent.trim(), priceElementFinanced);
             }
         
-            // Check and extract Description
             let description = await safelyGetTextContent(detailPage, '.item-detail_ItemDetail__description__7rXXT', 'Description not found');
         
-            // Extract Kilometers with detailed logic
             let kilometers = 'Kilometers not found';
             const kilometersElements = await detailPage.$$('.item-detail-car-extra-info_ItemDetailCarExtraInfo__section__n4g_P');
             for (const element of kilometersElements) {
@@ -116,7 +113,6 @@ async function checkNewListings() {
                 }
             }
         
-            // Extract Fuel with detailed logic
             let fuel = 'Fuel not found';
             const fuelElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
             for (const element of fuelElements) {
@@ -127,7 +123,6 @@ async function checkNewListings() {
                 }
             }
         
-            // Extract Box with detailed logic
             let box = 'Box type not found';
             const boxElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
             for (const element of boxElements) {
