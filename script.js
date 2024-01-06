@@ -55,6 +55,16 @@ async function saveLastAdId() {
     await fs.writeFile(lastAdIdFilePath, JSON.stringify({ lastAdId }), 'utf8');
 }
 
+async function safelyGetTextContent(page, selector, defaultValue) {
+    const element = await page.$(selector);
+    if (element) {
+        const text = await page.evaluate(el => el.textContent.trim(), element);
+        return text;
+    } else {
+        return defaultValue;
+    }
+}
+
 
 async function checkNewListings() {
     console.log("Launching browser...");
@@ -76,64 +86,60 @@ async function checkNewListings() {
 
         try {
             await detailPage.goto(link, { waitUntil: 'networkidle0' });
-            const titleExists = await detailPage.$('.item-detail_ItemDetail__title__wcPRl') !== null;
-            let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Title not found';
-
-            let price = 'Информация не найдена';
-            const priceSelectorStandard = '.item-detail-price_ItemDetailPrice--standard__TxPXr';
-            const priceSelectorFinanced = '.item-detail-price_ItemDetailPrice--standardFinanced__14D3z';
-            
-            const priceElementStandard = await detailPage.$(priceSelectorStandard);
-            const priceElementFinanced = await detailPage.$(priceSelectorFinanced);
-            
+        
+            // Check and extract Title
+            let title = await safelyGetTextContent(detailPage, '.item-detail_ItemDetail__title__wcPRl', 'Title not found');
+        
+            // Extract Price with detailed logic
+            let price = 'Price not found';
+            const priceElementStandard = await detailPage.$('.item-detail-price_ItemDetailPrice--standard__TxPXr');
+            const priceElementFinanced = await detailPage.$('.item-detail-price_ItemDetailPrice--standardFinanced__14D3z');
             if (priceElementStandard) {
-                price = await detailPage.$eval(priceSelectorStandard, el => el.textContent);
+                price = await detailPage.evaluate(el => el.textContent.trim(), priceElementStandard);
             } else if (priceElementFinanced) {
-                price = await detailPage.$eval(priceSelectorFinanced, el => el.textContent);
+                price = await detailPage.evaluate(el => el.textContent.trim(), priceElementFinanced);
             }
-
-            
-            const descriptionExists = await detailPage.$('.item-detail_ItemDetail__description__7rXXT') !== null;
-            let description = descriptionExists ? await detailPage.$eval('.item-detail_ItemDetail__description__7rXXT', el => el.textContent) : 'Название не найдено';
-
-            let kilometors = 'Информация не найдена';
-            const kilometorsElements = await detailPage.$$('.item-detail-car-extra-info_ItemDetailCarExtraInfo__section__n4g_P');
-            
-            for (const element of kilometorsElements) {
-                const spans = await element.$$eval('span', spans => spans.map(span => span.textContent));
+        
+            // Check and extract Description
+            let description = await safelyGetTextContent(detailPage, '.item-detail_ItemDetail__description__7rXXT', 'Description not found');
+        
+            // Extract Kilometers with detailed logic
+            let kilometers = 'Kilometers not found';
+            const kilometersElements = await detailPage.$$('.item-detail-car-extra-info_ItemDetailCarExtraInfo__section__n4g_P');
+            for (const element of kilometersElements) {
+                const spans = await element.$$eval('span', spans => spans.map(span => span.textContent.trim()));
                 if (spans.length >= 2 && spans[0].includes('Kilómetros')) {
-                    kilometors = spans[1];
+                    kilometers = spans[1];
                     break;
                 }
             }
-
-            let fuel = 'Информация не найдена';
-
+        
+            // Extract Fuel with detailed logic
+            let fuel = 'Fuel not found';
             const fuelElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
             for (const element of fuelElements) {
-                const textContentFuel = await element.evaluate(el => el.textContent);
+                const textContentFuel = await element.evaluate(el => el.textContent.trim());
                 if (textContentFuel.includes('Diésel') || textContentFuel.includes('Gasolina')) {
                     fuel = textContentFuel;
                     break;
                 }
             }
-
-            let box = 'Информация не найдена';
-
+        
+            // Extract Box with detailed logic
+            let box = 'Box type not found';
             const boxElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
             for (const element of boxElements) {
-                const textContent = await element.evaluate(el => el.textContent);
-                if (textContent.includes('Manual') || textContent.includes('Automático')) {
-                    box = textContent;
+                const textContentBox = await element.evaluate(el => el.textContent.trim());
+                if (textContentBox.includes('Manual') || textContentBox.includes('Automático')) {
+                    box = textContentBox;
                     break;
                 }
             }
-
-
-
+        
             const photoUrls = await getSliderImages(detailPage, '.wallapop-carousel--rounded');
-            listings.push({ adId: link, link, title, price, description, kilometors, fuel, box, photoUrls });
-        } catch (error) {
+            listings.push({ adId: link, link, title, price, description, kilometers, fuel, box, photoUrls });
+        }
+         catch (error) {
             console.error(`Error processing link: ${link}`, error);
         } finally {
             await detailPage.close();
@@ -241,10 +247,10 @@ function sleep(ms) {
 
                     if (mediaGroup.length > 0) {
                         await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(40000);
+                        await sleep(50000);
                     } else {
                         await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(40000);
+                        await sleep(50000);
                     }
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
@@ -280,7 +286,7 @@ function sleep(ms) {
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 100000); 
+    setInterval(main, 400000); 
 });
 
 
