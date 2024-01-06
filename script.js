@@ -62,6 +62,8 @@ async function checkNewListings() {
         waitUntil: 'networkidle2',
         timeout: 120000 // 120 секунд
     });
+    console.log('Response Status:', response.status());
+    console.log('Response Headers:', response.headers());
         console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
 
