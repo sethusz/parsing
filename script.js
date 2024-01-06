@@ -13,11 +13,11 @@ const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
     telegram: {
         agent: new https.Agent({
             keepAlive: true,
-            host: proxyServer, 
-            port: proxyPort, 
+            host: 'ua-1.stableproxy.com', 
+            port: 11000, 
             auth: {
-                username: proxyUser, 
-                password: proxyPassword 
+                username: 'baDb9y9sv2', 
+                password: '578sNJwVMiyP' 
             }
         }),
     },
