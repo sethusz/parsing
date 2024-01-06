@@ -6,6 +6,8 @@ import puppeteer from 'puppeteer';
 
   await page.goto('https://google.com', { waitUntil: 'networkidle0' });
 
-  console.log(page.body);
+  const data = page.evaluate(() => document.querySelector('*').outerHTML);
+
+  console.log(data)
   await browser.close();
 })();
