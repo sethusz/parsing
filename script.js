@@ -79,15 +79,17 @@ async function checkNewListings() {
     const listings = [];
     const listingElementHandles = await page.$$('a.ItemCardList__item');
     for (const linkElementHandle of listingElementHandles) {
-        const link = await linkElementHandle.evaluate(el => el.href);
-
+         const link = await linkElementHandle.evaluate(el => el.href);
         console.log(`Processing link: ${link}`);
         const detailPage = await browser.newPage();
+
+        detailPage.on('response', response => {
+            console.log(`Received response with status: ${response.status()} for ${response.url()}`);
+        });
 
         try {
             await detailPage.goto(link, { waitUntil: 'networkidle0' });
         
-            // Check and extract Title
             let title = await safelyGetTextContent(detailPage, '.item-detail_ItemDetail__title__wcPRl', 'Title not found');
         
             // Extract Price with detailed logic
