@@ -58,14 +58,10 @@ async function saveLastAdId() {
 
 async function checkNewListings() {
     console.log("Launching browser...");
-    const browser = await puppeteer.launch({   headless: true,   args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', {
-        waitUntil: 'networkidle0',
-        timeout: 60000 // Устанавливаем таймаут в 60 000 миллисекунд (1 минута)
-    });
-    
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'networkidle2', timeout: 60000 });
     console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
 
