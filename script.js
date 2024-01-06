@@ -241,10 +241,10 @@ function sleep(ms) {
 
                     if (mediaGroup.length > 0) {
                         await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(30000);
+                        await sleep(50000);
                     } else {
                         await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(30000);
+                        await sleep(50000);
                     }
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
@@ -280,7 +280,7 @@ function sleep(ms) {
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 100000); 
+    setInterval(main, 400000); 
 });
 
 
