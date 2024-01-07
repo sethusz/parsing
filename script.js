@@ -71,8 +71,11 @@ async function checkNewListings() {
 
     
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { waitUntil: 'networkidle0' });
-
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { 
+        waitUntil: 'networkidle0', 
+        timeout: 90000 
+    });
+    
     console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
 
