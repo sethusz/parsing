@@ -10,7 +10,7 @@ import { sendTelegramMessage, sendTelegramMediaGroup, startBot, getUserChatIds }
 
 
 const proxyServer = 'ua-1.stableproxy.com';
-const proxyPort = '11000';
+const proxyPort = '11001';
 const proxyUser = 'baDb9y9sv2';
 const proxyPassword = '578sNJwVMiyP';
 
