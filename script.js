@@ -6,22 +6,8 @@
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
-import { Telegraf, session } from 'telegraf';
-import https from 'https';
+import { sendTelegramMessage, sendTelegramMediaGroup, startBot, getUserChatIds } from './tgbot.js';
 
-const bot = new Telegraf('5412985709:AAEtIov5j7RsECWvgxtsC8AAH5RjERmHwu8', {
-    telegram: {
-        agent: new https.Agent({
-            keepAlive: true,
-            host: 'ua-1.stableproxy.com', 
-            port: 11000, 
-            auth: {
-                username: 'baDb9y9sv2', 
-                password: '578sNJwVMiyP' 
-            }
-        }),
-    },
-});
 
 const proxyServer = 'ua-1.stableproxy.com';
 const proxyPort = '11000';
@@ -32,9 +18,7 @@ const proxyPassword = '578sNJwVMiyP';
 const sentAdIdsFilePath = './sentAdIds.json';
 const lastAdIdFilePath = './lastAdId.json';
 
-const sessionMiddleware = session();
 let sentAdIds = new Set();
-let queue = [];
 
 async function loadSentAdIds() {
     try {
@@ -177,40 +161,6 @@ async function getSliderImages(detailPage, sliderSelector) {
 }
 
 
-async function sendTelegramMessage(chatId, message, useMarkdown = false) {
-    try {
-        const options = useMarkdown ? { parse_mode: 'Markdown' } : {};
-        await bot.telegram.sendMessage(chatId, message, options);
-        console.log("Message sent successfully.");
-    } catch (error) {
-        console.error('Failed to send message:', error);
-    }
-}
-
-
-async function sendTelegramMediaGroup(chatId, mediaGroup) {
-    try {
-        const validMediaGroup = mediaGroup.filter(media => media.media.startsWith('http'));
-        if (validMediaGroup.length === 0) {
-            console.log("Нет доступных изображений для отправки.");
-            return;
-        }
-
-        await bot.telegram.sendMediaGroup(chatId, validMediaGroup);
-        console.log("Media group sent successfully.");
-    } catch (error) {
-        console.error('Failed to send media group:', error);
-        if (error.message.includes("Too Many Requests: retry after")) {
-            const retryAfter = parseInt(error.message.split("retry after ")[1], 10) * 1000;
-            console.log(`Rate limit hit, retrying after ${retryAfter / 1000} seconds.`);
-            await new Promise(resolve => setTimeout(resolve, retryAfter));
-            await sendTelegramMediaGroup(chatId, mediaGroup); 
-        } else {
-            throw error;
-        }
-    }
-}
-bot.launch();
 
 let lastAdId = null;
 
@@ -222,9 +172,21 @@ function sleep(ms) {
 
   let isProcessing = false;
 
-  let isFirstRun = true;
   
-  async function main() {
+  async function broadcastMessageToAllUsers(message, mediaGroup = null) {
+    const chatIds = getUserChatIds();
+    for (const chatId of chatIds) {
+        if (mediaGroup) {
+            await sendTelegramMediaGroup(chatId, mediaGroup);
+        } else {
+            await sendTelegramMessage(chatId, message);
+        }
+        await sleep(1000); 
+    }
+}
+
+
+async function main() {
     if (isProcessing) {
         console.log("Previous main function is still running, skipping...");
         return;
@@ -243,12 +205,11 @@ function sleep(ms) {
         for (let i = 0; i < newlistings.length; i++) {
             let ad = newlistings[i];
             let adId = ad.adId;
-        
+
             if (!sentAdIds.has(adId)) {
                 console.log(`Found new ad: ${adId}`);
                 foundNew = true;
 
-                if (!isFirstRun) {
                     const caption = `${ad.title}\n` +
                                     `\n` +
                                     `Цена: ${ad.price}\n` +
@@ -258,53 +219,50 @@ function sleep(ms) {
                                     `Описание: ${ad.description}\n` +
                                     `[Ссылка](${ad.link})`;
 
-                    let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
-                        type: 'photo',
-                        media: photoUrl,
-                        caption: index === 0 ? caption : undefined,
-                        parse_mode: index === 0 ? 'Markdown' : undefined
-                    }));
+                                    let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
+                                        type: 'photo',
+                                        media: photoUrl,
+                                        caption: index === 0 ? caption : undefined,
+                                        parse_mode: index === 0 ? 'Markdown' : undefined
+                                    }));
+                            
+                                    if (mediaGroup.length > 0) {
+                                        await broadcastMessageToAllUsers(null, mediaGroup);
+                                        await sleep(30000);
 
-                    if (mediaGroup.length > 0) {
-                        await sendTelegramMediaGroup('-4090647219', mediaGroup);
-                        await sleep(45000);
-                    } else {
-                        await sendTelegramMessage('-4090647219', caption, true);
-                        await sleep(45000);
-                    }
+                                    } else {
+                                        await broadcastMessageToAllUsers(caption);
+                                        await sleep(30000);
+                                    }
+                                    
                     console.log(`Sending ad ${adId} to Telegram`);
                     sentAdIds.add(adId);
-                    newLastAdId = adId; // Обновляем newLastAdId после успешной отправки
-                }
+                    newLastAdId = adId;
+
             }
         }
 
         if (newLastAdId) {
-            lastAdId = newLastAdId; // Обновляем lastAdId после обработки всех новых объявлений
+            lastAdId = newLastAdId;
             await saveSentAdIds();
             await saveLastAdId();
             console.log(`Updated lastAdId to ${lastAdId}`);
-
         } else if (!foundNew) {
             console.log("Новых объявлений нет.");
         }
 
-        if (isFirstRun) {
-            console.log("First run, setting isFirstRun to false");
 
-            isFirstRun = false;
-        }
     } catch (error) {
         console.error("Error in main function:", error);
     } finally {
         isProcessing = false;
         console.log("Finished main function");
-
     }
 }
 
+startBot();
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 400000); 
+    setInterval(main, 60000); 
 });
