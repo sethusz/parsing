@@ -6,7 +6,7 @@
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
-import { sendTelegramMessage, sendTelegramMediaGroup, startBot, getUserChatIds } from './tgbot.js';
+import { sendTelegramMessage, sendTelegramMediaGroup, startBot } from './tgbot.js';
 
 
 const proxyServer = 'ua-1.stableproxy.com';
@@ -177,15 +177,12 @@ function sleep(ms) {
 
   
   async function broadcastMessageToAllUsers(message, mediaGroup = null) {
-    const chatIds = getUserChatIds();
-    for (const chatId of chatIds) {
         if (mediaGroup) {
-            await sendTelegramMediaGroup(chatId, mediaGroup);
+            await sendTelegramMediaGroup('-4195335988', mediaGroup);
         } else {
-            await sendTelegramMessage(chatId, message);
+            await sendTelegramMessage('-4195335988', message);
         }
-        await sleep(1000); 
-    }
+        await sleep(40000); 
 }
 
 

@@ -49,7 +49,3 @@ export async function sendTelegramMediaGroup(chatId, mediaGroup) {
 export function startBot() {
     bot.launch();
 }
-
-export function getUserChatIds() {
-    return userChatIds;
-}
