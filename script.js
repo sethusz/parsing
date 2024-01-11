@@ -73,11 +73,11 @@ async function checkNewListings() {
     console.log("Going to the page...");
     await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { 
         waitUntil: 'networkidle0', 
-        timeout: 90000 
+        timeout: 90000000
     });
     
     console.log("Evaluating page content...");
-    await page.waitForSelector('a.ItemCardList__item', { timeout: 5000 });
+    await page.waitForSelector('a.ItemCardList__item', { timeout: 5000000 });
 
     const listings = [];
     const listingElementHandles = await page.$$('a.ItemCardList__item');
@@ -88,7 +88,7 @@ async function checkNewListings() {
         const detailPage = await browser.newPage();
 
         try {
-            await detailPage.goto(link, { waitUntil: 'networkidle0' });
+            await detailPage.goto(link, { waitUntil: 'networkidle0', timeout: 5000000 });
             const titleExists = await detailPage.$('.item-detail_ItemDetail__title__wcPRl') !== null;
             let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Title not found';
 
