@@ -264,5 +264,5 @@ startBot();
 
 loadSentAdIds().then(() => {
     main();
-    setInterval(main, 60000); 
+    setInterval(main, 400000); 
 });
