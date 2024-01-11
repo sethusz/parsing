@@ -60,14 +60,14 @@ async function checkNewListings() {
     const browser = await puppeteer.launch({   headless: true,  args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        `--proxy-server=${proxyServer}:${proxyPort}`
+        // `--proxy-server=${proxyServer}:${proxyPort}`
     ], });
     const page = await browser.newPage();
 
-    await page.authenticate({
-        username: proxyUser,
-        password: proxyPassword
-    });
+    // await page.authenticate({
+    //     username: proxyUser,
+    //     password: proxyPassword
+    // });
 
     
     console.log("Going to the page...");
