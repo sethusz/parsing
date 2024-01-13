@@ -55,107 +55,118 @@ async function saveLastAdId() {
 }
 
 
+let lastProcessedAdId = null;
+
 async function checkNewListings() {
     console.log("Launching browser...");
-    const browser = await puppeteer.launch({   headless: true,  args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        // `--proxy-server=${proxyServer}:${proxyPort}`
-    ], });
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
 
-    // await page.authenticate({
-    //     username: proxyUser,
-    //     password: proxyPassword
-    // });
-
-    
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', { 
-        waitUntil: 'networkidle0', 
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', {
+        waitUntil: 'networkidle0',
         timeout: 90000000
     });
-    
+
     console.log("Evaluating page content...");
     await page.waitForSelector('a.ItemCardList__item', { timeout: 5000000 });
 
-    const listings = [];
     const listingElementHandles = await page.$$('a.ItemCardList__item');
-    for (const linkElementHandle of listingElementHandles) {
-        const link = await linkElementHandle.evaluate(el => el.href);
+    let startIndex = 0;
 
-        console.log(`Processing link: ${link}`);
-        const detailPage = await browser.newPage();
+    if (lastProcessedAdId) {
+        const links = await Promise.all(listingElementHandles.map(handle => handle.evaluate(node => node.href)));
+        startIndex = links.indexOf(lastProcessedAdId) + 1;
+    }
 
-        try {
-            await detailPage.goto(link, { waitUntil: 'networkidle0', timeout: 5000000 });
-            const titleExists = await detailPage.$('.item-detail_ItemDetail__title__wcPRl') !== null;
-            let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Title not found';
+    const newListingHandles = listingElementHandles.slice(startIndex);
+    const detailPagePromises = newListingHandles.map(handle => processListing(handle, browser));
 
-            let price = 'Информация не найдена';
-            const priceSelectorStandard = '.item-detail-price_ItemDetailPrice--standard__TxPXr';
-            const priceSelectorFinanced = '.item-detail-price_ItemDetailPrice--standardFinanced__14D3z';
-            
-            const priceElementStandard = await detailPage.$(priceSelectorStandard);
-            const priceElementFinanced = await detailPage.$(priceSelectorFinanced);
-            
-            if (priceElementStandard) {
-                price = await detailPage.$eval(priceSelectorStandard, el => el.textContent);
-            } else if (priceElementFinanced) {
-                price = await detailPage.$eval(priceSelectorFinanced, el => el.textContent);
-            }
-
-            
-            const descriptionExists = await detailPage.$('.item-detail_ItemDetail__description__7rXXT') !== null;
-            let description = descriptionExists ? await detailPage.$eval('.item-detail_ItemDetail__description__7rXXT', el => el.textContent) : 'Название не найдено';
-
-            let kilometors = 'Информация не найдена';
-            const kilometorsElements = await detailPage.$$('.item-detail-car-extra-info_ItemDetailCarExtraInfo__section__n4g_P');
-            
-            for (const element of kilometorsElements) {
-                const spans = await element.$$eval('span', spans => spans.map(span => span.textContent));
-                if (spans.length >= 2 && spans[0].includes('Kilómetros')) {
-                    kilometors = spans[1];
-                    break;
-                }
-            }
-
-            let fuel = 'Информация не найдена';
-
-            const fuelElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
-            for (const element of fuelElements) {
-                const textContentFuel = await element.evaluate(el => el.textContent);
-                if (textContentFuel.includes('Diésel') || textContentFuel.includes('Gasolina')) {
-                    fuel = textContentFuel;
-                    break;
-                }
-            }
-
-            let box = 'Информация не найдена';
-
-            const boxElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
-            for (const element of boxElements) {
-                const textContent = await element.evaluate(el => el.textContent);
-                if (textContent.includes('Manual') || textContent.includes('Automático')) {
-                    box = textContent;
-                    break;
-                }
-            }
-
-
-
-            const photoUrls = await getSliderImages(detailPage, '.wallapop-carousel--rounded');
-            listings.push({ adId: link, link, title, price, description, kilometors, fuel, box, photoUrls });
-        } catch (error) {
-            console.error(`Error processing link: ${link}`, error);
-        } finally {
-            await detailPage.close();
-        }
+    const listings = await Promise.all(detailPagePromises);
+    if (listings.length > 0) {
+        lastProcessedAdId = listings[listings.length - 1].adId;
     }
 
     await browser.close();
     console.log("Listings fetched:", listings);
-    return listings;
+
+    return listings.filter(listing => listing !== null);
+}
+
+
+async function processListing(linkElementHandle, browser) {
+    try {
+        const link = await linkElementHandle.evaluate(el => el.href);
+        const detailPage = await browser.newPage();
+        await detailPage.goto(link, { waitUntil: 'networkidle0', timeout: 5000000 });
+        console.log(`Processing link: ${link}`);
+
+        const titleExists = await detailPage.$('.item-detail_ItemDetail__title__wcPRl') !== null;
+        let title = titleExists ? await detailPage.$eval('.item-detail_ItemDetail__title__wcPRl', el => el.textContent) : 'Title not found';
+
+        let price = 'Информация не найдена';
+        const priceSelectorStandard = '.item-detail-price_ItemDetailPrice--standard__TxPXr';
+        const priceSelectorFinanced = '.item-detail-price_ItemDetailPrice--standardFinanced__14D3z';
+        
+        const priceElementStandard = await detailPage.$(priceSelectorStandard);
+        const priceElementFinanced = await detailPage.$(priceSelectorFinanced);
+        
+        if (priceElementStandard) {
+            price = await detailPage.$eval(priceSelectorStandard, el => el.textContent);
+        } else if (priceElementFinanced) {
+            price = await detailPage.$eval(priceSelectorFinanced, el => el.textContent);
+        }
+
+        
+        const descriptionExists = await detailPage.$('.item-detail_ItemDetail__description__7rXXT') !== null;
+        let description = descriptionExists ? await detailPage.$eval('.item-detail_ItemDetail__description__7rXXT', el => el.textContent) : 'Название не найдено';
+
+        let kilometors = 'Информация не найдена';
+        const kilometorsElements = await detailPage.$$('.item-detail-car-extra-info_ItemDetailCarExtraInfo__section__n4g_P');
+        
+        for (const element of kilometorsElements) {
+            const spans = await element.$$eval('span', spans => spans.map(span => span.textContent));
+            if (spans.length >= 2 && spans[0].includes('Kilómetros')) {
+                kilometors = spans[1];
+                break;
+            }
+        }
+
+        let fuel = 'Информация не найдена';
+
+        const fuelElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
+        for (const element of fuelElements) {
+            const textContentFuel = await element.evaluate(el => el.textContent);
+            if (textContentFuel.includes('Diésel') || textContentFuel.includes('Gasolina')) {
+                fuel = textContentFuel;
+                break;
+            }
+        }
+
+        let box = 'Информация не найдена';
+
+        const boxElements = await detailPage.$$('.item-detail-attributes-info_AttributesInfo__measure__uZS62');
+        for (const element of boxElements) {
+            const textContent = await element.evaluate(el => el.textContent);
+            if (textContent.includes('Manual') || textContent.includes('Automático')) {
+                box = textContent;
+                break;
+            }
+        }
+
+
+
+        const photoUrls = await getSliderImages(detailPage, '.wallapop-carousel--rounded');
+
+        await detailPage.close();
+        return { adId: link, link, title, price, description, kilometors, fuel, box, photoUrls };
+    } catch (error) {
+        console.error(`Error processing link: ${link}`, error);
+        return null;
+    }
 }
 
 
@@ -178,13 +189,15 @@ function sleep(ms) {
   
   async function broadcastMessageToAllUsers(message, mediaGroup = null) {
         if (mediaGroup) {
-            await sendTelegramMediaGroup('-4195335988', mediaGroup);
+            await sendTelegramMediaGroup('-4183275313', mediaGroup);
         } else {
-            await sendTelegramMessage('-4195335988', message);
+            await sendTelegramMessage('-4183275313', message);
         }
         await sleep(40000); 
 }
 
+
+let isFirstRun = true;
 
 async function main() {
     if (isProcessing) {
@@ -210,6 +223,7 @@ async function main() {
                 console.log(`Found new ad: ${adId}`);
                 foundNew = true;
 
+                if (!isFirstRun) {
                     const caption = `${ad.title}\n` +
                                     `\n` +
                                     `Цена: ${ad.price}\n` +
@@ -219,26 +233,25 @@ async function main() {
                                     `Описание: ${ad.description}\n` +
                                     `[Ссылка](${ad.link})`;
 
-                                    let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
-                                        type: 'photo',
-                                        media: photoUrl,
-                                        caption: index === 0 ? caption : undefined,
-                                        parse_mode: index === 0 ? 'Markdown' : undefined
-                                    }));
+                    let mediaGroup = ad.photoUrls.slice(0, 10).map((photoUrl, index) => ({
+                        type: 'photo',
+                        media: photoUrl,
+                        caption: index === 0 ? caption : undefined,
+                        parse_mode: index === 0 ? 'Markdown' : undefined
+                    }));
                             
-                                    if (mediaGroup.length > 0) {
-                                        await broadcastMessageToAllUsers(null, mediaGroup);
-                                        await sleep(30000);
-
-                                    } else {
-                                        await broadcastMessageToAllUsers(caption);
-                                        await sleep(30000);
-                                    }
+                    if (mediaGroup.length > 0) {
+                        await broadcastMessageToAllUsers(null, mediaGroup);
+                        await sleep(30000);
+                    } else {
+                        await broadcastMessageToAllUsers(caption);
+                        await sleep(30000);
+                    }
+                }
                                     
-                    console.log(`Sending ad ${adId} to Telegram`);
-                    sentAdIds.add(adId);
-                    newLastAdId = adId;
-
+                console.log(`Processed ad ${adId}`);
+                sentAdIds.add(adId);
+                newLastAdId = adId;
             }
         }
 
@@ -250,6 +263,9 @@ async function main() {
         } else if (!foundNew) {
             console.log("Новых объявлений нет.");
         }
+
+        isFirstRun = false
+
 
 
     } catch (error) {

@@ -3,7 +3,7 @@ import https from 'https';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const bot = new Telegraf('6955802346:AAG2qs8ZQ0VneN4sxTUmYLMrHwrd3jlCvmE', {
+const bot = new Telegraf('5463178895:AAFA5lnL_sfY3VaDNOdBuG4c57VO4JBJPo0', {
     telegram: {
         agent: new https.Agent({
             keepAlive: true,
