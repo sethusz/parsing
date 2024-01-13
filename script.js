@@ -85,11 +85,12 @@ async function checkNewListings() {
     const newListingHandles = listingElementHandles.slice(startIndex);
     const detailPagePromises = newListingHandles.map(handle => processListing(handle, browser));
 
-    const listings = await Promise.all(detailPagePromises);
-    if (listings.length > 0) {
-        lastProcessedAdId = listings[listings.length - 1].adId;
+    const listings = [];
+    for (let i = startIndex; i < newListingHandles.length; i += 5) {
+        const batch = newListingHandles.slice(i, i + 5);
+        const results = await Promise.all(batch.map(handle => processListing(handle, browser)));
+        listings.push(...results.filter(result => result !== null));
     }
-
     await browser.close();
     console.log("Listings fetched:", listings);
 
