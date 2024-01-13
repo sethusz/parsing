@@ -200,9 +200,9 @@ function sleep(ms) {
   
   async function broadcastMessageToAllUsers(message, mediaGroup = null) {
         if (mediaGroup) {
-            await sendTelegramMediaGroup('-4183275313', mediaGroup);
+            await sendTelegramMediaGroup('-4195335988', mediaGroup);
         } else {
-            await sendTelegramMessage('-4183275313', message);
+            await sendTelegramMessage('-4195335988', message);
         }
         // await sleep(40000); 
 }
