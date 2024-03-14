@@ -1,6 +1,8 @@
 
 
 
+import { Telegraf } from 'telegraf'; // Ensure you've imported Telegraf correctly
+import https from 'https'; // Make sure to import https if it's used for the agent
 
 
 import puppeteer from 'puppeteer';
@@ -40,6 +42,14 @@ async function saveSentAdIds() {
     await fs.writeFile(sentAdIdsFilePath, JSON.stringify(idsArray), 'utf8');
 }
 
+async function sendMessageThroughBotTwo(message) {
+    try {
+        await botTwo.telegram.sendMessage('-4195335988', message);
+    } catch (error) {
+        console.error('Failed to send message through botTwo:', error);
+    }
+}
+
 async function loadLastAdId() {
     try {
         const data = await fs.readFile(lastAdIdFilePath, 'utf8');
@@ -53,6 +63,14 @@ async function loadLastAdId() {
 async function saveLastAdId() {
     await fs.writeFile(lastAdIdFilePath, JSON.stringify({ lastAdId }), 'utf8');
 }
+
+const botTwo = new Telegraf('6955802346:AAG2qs8ZQ0VneN4sxTUmYLMrHwrd3jlCvmE', {
+    telegram: {
+        agent: new https.Agent({
+            keepAlive: true,
+        }),
+    },
+});
 
 
 let lastProcessedAdId = null;
@@ -211,6 +229,10 @@ function sleep(ms) {
 let isFirstRun = true;
 
 async function main() {
+
+    await sendMessageThroughBotTwo("Бот работает");
+
+    
     if (isProcessing) {
         console.log("Previous main function is still running, skipping...");
         return;
