@@ -1,14 +1,61 @@
 
 
 
-import { Telegraf } from 'telegraf'; // Ensure you've imported Telegraf correctly
-import https from 'https'; // Make sure to import https if it's used for the agent
-
-
 import puppeteer from 'puppeteer';
-import fetch from 'node-fetch';
 import fs from 'fs/promises';
-import { sendTelegramMessage, sendTelegramMediaGroup, startBot } from './tgbot.js';
+
+import { Telegraf, session } from 'telegraf';
+import https from 'https';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const bot = new Telegraf('6955802346:AAG2qs8ZQ0VneN4sxTUmYLMrHwrd3jlCvmE', {
+    telegram: {
+        agent: new https.Agent({
+            keepAlive: true,
+        }),
+    },
+});
+
+let userChatIds = new Set();
+
+bot.on('text', (ctx) => {
+    const chatId = ctx.chat.id;
+    userChatIds.add(chatId);
+    console.log(`Добавлен новый ID чата: ${chatId}`);
+    ctx.reply('Ваше сообщение получено!');
+});
+
+
+ async function sendTelegramMessage(chatId, message, useMarkdown = false) {
+    try {
+        const options = useMarkdown ? { parse_mode: 'Markdown' } : {};
+        await bot.telegram.sendMessage(chatId, message, options);
+        console.log("Message sent successfully.");
+    } catch (error) {
+        console.error('Failed to send message:', error);
+    }
+}
+
+ async function sendTelegramMediaGroup(chatId, mediaGroup) {
+    try {
+        const validMediaGroup = mediaGroup.filter(media => media.media.startsWith('http'));
+        if (validMediaGroup.length === 0) {
+            console.log("Нет доступных изображений для отправки.");
+            return;
+        }
+
+        await bot.telegram.sendMediaGroup(chatId, validMediaGroup);
+        console.log("Media group sent successfully.");
+    } catch (error) {
+        console.error('Failed to send media group:', error);
+    }
+}
+
+export function startBot() {
+    bot.launch();
+}
+
 
 
 const proxyServer = 'ua-1.stableproxy.com';
@@ -42,13 +89,13 @@ async function saveSentAdIds() {
     await fs.writeFile(sentAdIdsFilePath, JSON.stringify(idsArray), 'utf8');
 }
 
-async function sendMessageThroughBotTwo(message) {
-    try {
-        await botTwo.telegram.sendMessage('-4195335988', message);
-    } catch (error) {
-        console.error('Failed to send message through botTwo:', error);
-    }
-}
+// async function sendMessageThroughBotTwo(message) {
+//     try {
+//         await botTwo.telegram.sendMessage('-4195335988', message);
+//     } catch (error) {
+//         console.error('Failed to send message through botTwo:', error);
+//     }
+// }
 
 async function loadLastAdId() {
     try {
@@ -230,9 +277,9 @@ let isFirstRun = true;
 
 async function main() {
 
-    await sendMessageThroughBotTwo("Бот работает");
+    // await sendMessageThroughBotTwo("Бот работает");
 
-    
+
     if (isProcessing) {
         console.log("Previous main function is still running, skipping...");
         return;
