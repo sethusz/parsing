@@ -71,7 +71,7 @@ async function checkNewListings() {
     const page = await browser.newPage();
 
     console.log("Going to the page...");
-    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=40.41955&longitude=-3.69196&distance=50000&order_by=newest', {
+    await page.goto('https://es.wallapop.com/app/search?category_ids=100&filters_source=quick_filters&latitude=42.46591&longitude=-2.45193&distance=100000&order_by=newest&max_sale_price=3000', {
         waitUntil: 'networkidle0',
         timeout: 90000000
     });
@@ -242,7 +242,7 @@ async function main() {
                                     `Пробег: ${ad.kilometors}\n` +
                                     `Коробка: ${ad.box}\n` +
                                     `Описание: ${ad.description}\n` +
-                                    `[Ссылка](${ad.link})`;
+                                    `[Ссылка](${ad.link})(новая)`;
 
                     let mediaGroup = ad.photoUrls.slice(0, 5).map((photoUrl, index) => ({
                         type: 'photo',
